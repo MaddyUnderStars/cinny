@@ -32,7 +32,7 @@ import BulbIC from '../../../../public/res/ic/outlined/bulb.svg';
 import PeaceIC from '../../../../public/res/ic/outlined/peace.svg';
 import FlagIC from '../../../../public/res/ic/outlined/flag.svg';
 
-const ROW_EMOJIS_COUNT = 7;
+const ROW_EMOJIS_COUNT = 10;
 
 const EmojiGroup = React.memo(({ name, groupEmojis }) => {
   function getEmojiBoard() {
