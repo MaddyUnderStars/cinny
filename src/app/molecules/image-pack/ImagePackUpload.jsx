@@ -14,55 +14,85 @@ import CirclePlusIC from '../../../../public/res/ic/outlined/circle-plus.svg';
 function ImagePackUpload({ onUpload }) {
   const mx = initMatrix.matrixClient;
   const inputRef = useRef(null);
-  const shortcodeRef = useRef(null);
-  const [imgFile, setImgFile] = useState(null);
+  const [shortcodes, setShortcodes] = useState([]);
+  const [images, setImages] = useState([]);
   const [progress, setProgress] = useState(false);
 
   const handleSubmit = async (evt) => {
     evt.preventDefault();
-    if (!imgFile) return;
-    const { shortcodeInput } = evt.target;
-    const shortcode = shortcodeInput.value.trim();
-    if (shortcode === '') return;
+    if (!images.length) return;
 
     setProgress(true);
-    const image = await scaleDownImage(imgFile, 512, 512);
-    const { content_uri: url } = await mx.uploadContent(image);
 
-    onUpload(shortcode, url);
+    await Promise.all(
+      images.map((image, i) =>
+        scaleDownImage(image, 512, 512)
+          .then((scaled) => mx.uploadContent(scaled))
+          .then((uploaded) => onUpload(shortcodes[i], uploaded.content_uri))
+      )
+    );
+
     setProgress(false);
-    setImgFile(null);
-    shortcodeRef.current.value = '';
+    setImages([]);
+    setShortcodes([]);
   };
 
   const handleFileChange = (evt) => {
-    const img = evt.target.files[0];
-    if (!img) return;
-    setImgFile(img);
-    shortcodeRef.current.value = img.name.slice(0, img.name.indexOf('.'));
-    shortcodeRef.current.focus();
+    const files = [...evt.target.files];
+    if (!files.length) return;
+
+    setImages(files);
+    setShortcodes(files.map((file) => file.name.slice(0, file.name.indexOf('.'))));
   };
-  const handleRemove = () => {
-    setImgFile(null);
-    inputRef.current.value = null;
-    shortcodeRef.current.value = '';
+  const handleRemove = (index) => {
+    images.splice(index, 1);
+    shortcodes.splice(index, 1);
+    setImages([...images]);
+    setShortcodes([...shortcodes]);
+    if (!images.length) inputRef.current.value = null;
   };
 
   return (
     <form onSubmit={handleSubmit} className="image-pack-upload">
-      <input ref={inputRef} onChange={handleFileChange} style={{ display: 'none' }} type="file" accept=".png, .gif, .webp" required />
-      {
-        imgFile
-          ? (
+      <input
+        ref={inputRef}
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+        type="file"
+        accept=".png, .gif, .webp"
+        required
+        multiple
+      />
+      {!images.length ? (
+        <Button onClick={() => inputRef.current.click()}>Import images</Button>
+      ) : (
+        images.map((image, i) => (
+          <div className="image-pack-upload__filewrapper" key={image.name}>
             <div className="image-pack-upload__file">
-              <IconButton onClick={handleRemove} src={CirclePlusIC} tooltip="Remove file" />
-              <Text>{imgFile.name}</Text>
+              <IconButton
+                onClick={() => handleRemove(i)}
+                src={CirclePlusIC}
+                tooltip="Remove file"
+              />
+              <Text>{image.name}</Text>
             </div>
-          )
-          : <Button onClick={() => inputRef.current.click()}>Import image</Button>
-      }
-      <Input forwardRef={shortcodeRef} name="shortcodeInput" placeholder="shortcode" required />
-      <Button disabled={progress} variant="primary" type="submit">{progress ? 'Uploading...' : 'Upload'}</Button>
+            <Input
+              onChange={(value) => {
+                shortcodes[i] = value.trim();
+                setShortcodes([...shortcodes]);
+              }}
+              value={shortcodes[i]}
+              name="shortcodeInput"
+              placeholder="shortcode"
+              required
+            />
+          </div>
+        ))
+      )}
+
+      <Button disabled={progress} variant="primary" type="submit">
+        {progress ? 'Uploading...' : 'Upload'}
+      </Button>
     </form>
   );
 }
